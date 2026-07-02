@@ -16,6 +16,7 @@ package logger
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -24,9 +25,11 @@ import (
 	"runtime/debug"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/googlecloudplatform/gcsfuse/v3/cfg"
+	"google.golang.org/grpc/codes"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
@@ -270,6 +273,29 @@ func LogToStderr(format string, v ...any) {
 	} else {
 		fmt.Fprintln(os.Stderr, fmt.Sprintf(format, v...))
 	}
+}
+
+const GCSFuseStatusPrefix = "GCSFuse Status: "
+
+// GCSFuseStatusLog defines the structured log entry for status logging.
+type GCSFuseStatusLog struct {
+	GRPCCode  codes.Code `json:"grpc_code"`
+	Message   string     `json:"message"`
+	Timestamp time.Time  `json:"timestamp"`
+}
+
+// LogGCSFuseStatusToStderr logs status information in JSON format directly to stderr when in foreground mode.
+func LogGCSFuseStatusToStderr(code codes.Code, message string) {
+	if _, isBackground := os.LookupEnv(GCSFuseInBackgroundMode); isBackground {
+		return
+	}
+	status := GCSFuseStatusLog{
+		GRPCCode:  code,
+		Message:   message,
+		Timestamp: time.Now(),
+	}
+	bytes, _ := json.Marshal(status)
+	LogToStderr("%s%s", GCSFuseStatusPrefix, string(bytes))
 }
 
 // LogToStdout appends a formatted string directly to os.Stdout on a new line.

@@ -51,6 +51,8 @@ import (
 	"github.com/kardianos/osext"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -497,7 +499,7 @@ func Mount(mountInfo *mountInfo, bucketName, mountPoint string) (err error) {
 			}
 			// Print the success message in the log-file/stdout depending on what the logger is set to.
 			if cfg.IsGKEEnvironment(mountPoint) {
-				logger.LogToStderr(storageutil.MountingPrefix + SuccessfulMountMessage)
+				logger.LogGCSFuseStatusToStderr(codes.OK, SuccessfulMountMessage)
 			}
 			logger.Info(SuccessfulMountMessage)
 			callDaemonizeSignalOutcome(nil)
@@ -508,6 +510,13 @@ func Mount(mountInfo *mountInfo, bucketName, mountPoint string) (err error) {
 			// mounting gcsfuse in foreground mode. But this is important to avoid
 			// losing error logs when run in the background mode.
 			logger.Errorf("%s: %v\n", UnsuccessfulMountMessagePrefix, err)
+			if cfg.IsGKEEnvironment(mountPoint) {
+				code := codes.Unknown
+				if st, ok := status.FromError(err); ok {
+					code = st.Code()
+				}
+				logger.LogGCSFuseStatusToStderr(code, err.Error())
+			}
 			err = fmt.Errorf("%s: mountWithArgs: %w", UnsuccessfulMountMessagePrefix, err)
 			callDaemonizeSignalOutcome(err)
 		}

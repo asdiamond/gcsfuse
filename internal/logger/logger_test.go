@@ -29,6 +29,7 @@ import (
 	"github.com/googlecloudplatform/gcsfuse/v3/cfg"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
 )
 
 const (
@@ -605,4 +606,48 @@ func TestLogToStdout(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "plain message\nformatted info 200\n", buf.String())
+}
+
+func TestLogGCSFuseStatusToStderr(t *testing.T) {
+	oldStderr := os.Stderr
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	os.Stderr = w
+
+	LogGCSFuseStatusToStderr(codes.PermissionDenied, "permission denied")
+
+	_ = w.Close()
+	os.Stderr = oldStderr
+
+	var buf bytes.Buffer
+	_, err = io.Copy(&buf, r)
+	require.NoError(t, err)
+
+	output := buf.String()
+	assert.True(t, strings.HasPrefix(output, GCSFuseStatusPrefix))
+	assert.Contains(t, output, `"grpc_code":7`)
+	assert.Contains(t, output, `"message":"permission denied"`)
+	assert.Contains(t, output, `"timestamp":`)
+}
+
+func TestLogGCSFuseStatusToStderr_CodesOKIncludesZeroGRPCCode(t *testing.T) {
+	oldStderr := os.Stderr
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	os.Stderr = w
+
+	LogGCSFuseStatusToStderr(codes.OK, "success")
+
+	_ = w.Close()
+	os.Stderr = oldStderr
+
+	var buf bytes.Buffer
+	_, err = io.Copy(&buf, r)
+	require.NoError(t, err)
+
+	output := buf.String()
+	assert.True(t, strings.HasPrefix(output, GCSFuseStatusPrefix))
+	assert.Contains(t, output, `"grpc_code":0`)
+	assert.Contains(t, output, `"message":"success"`)
+	assert.Contains(t, output, `"timestamp":`)
 }

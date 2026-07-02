@@ -27,12 +27,6 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-const (
-	MountingPrefix        = "GCSFuse Mounting: "
-	bucketDoesNotExistMsg = MountingPrefix + "bucket does not exist"
-	permissionDeniedMsg   = MountingPrefix + "permission denied"
-)
-
 // retryAction defines the classification of a retry decision.
 type retryAction int
 
@@ -140,10 +134,10 @@ func ShouldRetryOnMountWithRetryContext(err error, retryCtx *storage.RetryContex
 	switch action {
 	case retry404BucketDoesNotExist, retryNotFoundBucketDoesNotExist:
 		shouldRetry = true
-		logger.LogToStderr(bucketDoesNotExistMsg)
+		logger.LogGCSFuseStatusToStderr(codes.NotFound, err.Error())
 	case retry403, retryPermissionDenied:
 		shouldRetry = true
-		logger.LogToStderr(permissionDeniedMsg)
+		logger.LogGCSFuseStatusToStderr(codes.PermissionDenied, err.Error())
 	}
 	if !shouldRetry {
 		return false

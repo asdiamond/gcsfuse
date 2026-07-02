@@ -30,6 +30,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"google.golang.org/grpc/codes"
 )
 
 type mountInfo struct {
@@ -215,10 +216,12 @@ func convertToPosixArgs(args []string, c *cobra.Command) []string {
 var ExecuteMountCmd = func() {
 	rootCmd, err := newRootCmd(Mount)
 	if err != nil {
+		logger.LogGCSFuseStatusToStderr(codes.InvalidArgument, err.Error())
 		log.Fatalf("Error occurred while creating the root command on gcsfuse/%s: %v", common.GetVersion(), err)
 	}
 	rootCmd.SetArgs(convertToPosixArgs(os.Args, rootCmd))
 	if err := rootCmd.Execute(); err != nil {
+		logger.LogGCSFuseStatusToStderr(codes.InvalidArgument, err.Error())
 		log.Fatalf("Error occurred during command execution on gcsfuse/%s: %v", common.GetVersion(), err)
 	}
 }
